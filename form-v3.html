@@ -98,6 +98,10 @@
     box-shadow: 0 2px 8px rgba(75,43,25,.035);
   }
   textarea { min-height: 150px; resize: vertical; }
+  /* ช่องข้อความสั้นที่ยืดตามเนื้อหา — ใช้แทน input บรรทัดเดียวเวลาข้อความอาจยาวจนอ่านไม่เห็น */
+  textarea.compact {
+    min-height: 0; resize: none; overflow-y: auto; max-height: 200px; line-height: 1.5;
+  }
   textarea:focus, input:focus, select:focus { outline: 3px solid rgba(227,90,18,.18); border-color: var(--brand); }
   textarea::placeholder, input::placeholder { color: #A99C93; }
 
@@ -291,7 +295,8 @@
       </div>
       <div class="field">
         <label for="landmark">จุดสังเกต / ที่อยู่โดยประมาณ (ไม่บังคับ)</label>
-        <input type="text" id="landmark" placeholder="เช่น ตรงข้ามวัด... ปากซอย... หน้าบ้านเลขที่...">
+        <textarea id="landmark" class="compact" rows="2" maxlength="200"
+          placeholder="เช่น ตรงข้ามวัด... ปากซอย... หน้าบ้านเลขที่..."></textarea>
       </div>
       <div class="field">
         <label>รูปประกอบ (ไม่เกิน 3 รูป)</label>
@@ -370,8 +375,8 @@
 // ตั้งค่าก่อนใช้งาน
 // ============================================================
 const CONFIG = {
-  LIFF_ID: 'PASTE_LIFF_ID',
-  ENDPOINT: 'PASTE_APPS_SCRIPT_EXEC_URL',
+  LIFF_ID: '2011276371-oRn2zqWE',
+  ENDPOINT: 'https://script.google.com/macros/s/AKfycbzQWmGaUGz3zF47dvTpdeDXuxt2vUpsV9FpWubD5_ArxZiTzhwMdsyPYNjnl0dgvLJq/exec',
   POLICY_VERSION: '2026-08-26' // ต้องตรงกับ POLICY_VERSION ใน Code.gs — ขยับทุกครั้งที่แก้ privacy.html
 };
 
@@ -447,7 +452,20 @@ WARDS.forEach(w => {
   wardSelect.appendChild(opt);
 });
 wardSelect.addEventListener('change', () => { state.ward = wardSelect.value; validateStep(3); saveDraft(); });
-document.getElementById('landmark').addEventListener('input', (e) => { state.landmark = e.target.value; saveDraft(); });
+
+const LANDMARK_MAX = 200; // ต้องไม่เกิน LIMITS.LANDMARK_MAX ใน Code.gs ไม่งั้น backend จะตีเรื่องกลับตอนกดส่ง
+const landmarkInput = document.getElementById('landmark');
+
+// ยืดช่องตามจำนวนบรรทัด เพื่อให้เห็นข้อความทั้งหมดโดยไม่ต้องเลื่อน
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+landmarkInput.addEventListener('input', (e) => {
+  state.landmark = e.target.value;
+  autoGrow(e.target);
+  saveDraft();
+});
 
 // ============================================================
 // Draft (localStorage) — กันข้อมูลหายตอน LINE in-app browser reload
@@ -480,7 +498,8 @@ function restoreDraft() {
       });
     }
     if (state.ward) wardSelect.value = state.ward;
-    document.getElementById('landmark').value = state.landmark || '';
+    landmarkInput.value = state.landmark || '';
+    autoGrow(landmarkInput);
     document.getElementById('name').value = state.name || '';
     document.getElementById('phone').value = state.phone || '';
     document.getElementById('hideContact').checked = !!state.hideContact;
@@ -627,8 +646,11 @@ function renderPlaceResults(results) {
         wardSelect.value = matchedWard;
         validateStep(3);
       }
-      state.landmark = result.display_name;
-      document.getElementById('landmark').value = state.landmark;
+      // ตัดให้พอดีเพดานเดียวกับ backend — display_name ของ OpenStreetMap ยาวได้มาก
+      // ถ้าปล่อยยาวเกิน backend จะตีเรื่องกลับตอนกดส่ง ทั้งที่ผู้ใช้กรอกครบแล้ว
+      state.landmark = String(result.display_name || '').slice(0, LANDMARK_MAX);
+      landmarkInput.value = state.landmark;
+      autoGrow(landmarkInput);
       saveDraft();
       renderSearchMessage('เลือกตำแหน่งแล้ว สามารถแตะแผนที่เพื่อปรับหมุดได้');
     });

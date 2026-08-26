@@ -56,6 +56,17 @@
   }
   .draft-banner.show { display: block; }
 
+  .init-error {
+    display: none; background: #FFF1F0; border: 1px solid #F3C0BC; border-left: 4px solid var(--danger);
+    border-radius: 12px; padding: 14px 15px; margin: 4px 0 16px; font-size: .88rem; line-height: 1.55;
+  }
+  .init-error.show { display: block; }
+  .init-error strong { display: block; margin-bottom: 5px; color: var(--danger); }
+  .init-error code {
+    display: block; margin-top: 8px; padding: 8px 10px; background: #fff; border-radius: 8px;
+    font-size: .75rem; word-break: break-word; color: var(--muted);
+  }
+
   .steps-progress {
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
     margin: 4px 0 27px; border-top: 1px solid var(--line); padding-top: 14px;
@@ -208,6 +219,7 @@
 </header>
 
 <div class="app">
+  <div id="initError" class="init-error"></div>
   <div id="draftBanner" class="draft-banner">กู้คืนข้อมูลที่กรอกไว้ก่อนหน้านี้แล้วครับ</div>
 
   <div class="steps-progress" id="progress">
@@ -358,8 +370,9 @@
 // ตั้งค่าก่อนใช้งาน
 // ============================================================
 const CONFIG = {
-  LIFF_ID: '22011276371-0Fsjy5e3',
-  ENDPOINT: 'https://script.google.com/macros/s/AKfycbzQWmGaUGz3zF47dvTpdeDXuxt2vUpsV9FpWubD5_ArxZiTzhwMdsyPYNjnl0dgvLJq/exec'
+  LIFF_ID: 'PASTE_LIFF_ID',
+  ENDPOINT: 'PASTE_APPS_SCRIPT_EXEC_URL',
+  POLICY_VERSION: '2026-08-26' // ต้องตรงกับ POLICY_VERSION ใน Code.gs — ขยับทุกครั้งที่แก้ privacy.html
 };
 
 const CATEGORIES = [
@@ -381,7 +394,14 @@ const DEFAULT_CENTER = [13.8595, 100.7245]; // เขตคลองสามว
 const DRAFT_KEY = 'ksw_draft_v1';
 const sessionId = 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 
+// นับแต่ละขั้นครั้งเดียวต่อ session — ไม่งั้นคนที่กดย้อนกลับแล้วเดินหน้าใหม่จะถูกนับซ้ำ
+// ทำให้ตัวชี้วัด "จุดที่คนหลุดมากที่สุด" กลับด้าน (ขั้นที่คนลังเลที่สุดจะมีตัวเลขสูงที่สุด)
+const loggedSteps = new Set();
+
 function logEvent(eventName, step) {
+  const key = eventName + ':' + (step || '');
+  if (loggedSteps.has(key)) return;
+  loggedSteps.add(key);
   try {
     const payload = JSON.stringify({ type: 'event', event: eventName, step: step || '', sessionId });
     if (navigator.sendBeacon) {
@@ -533,6 +553,12 @@ function initMap() {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
   map.on('click', (e) => setMarker(e.latlng.lat, e.latlng.lng));
+  // ร่างที่กู้คืนมาอาจมีพิกัดอยู่แล้ว ต้องวาดหมุดกลับ ไม่งั้นแผนที่ดูว่างเปล่า
+  // แต่หน้าตรวจทานขึ้นว่า "ปักหมุดแล้ว" — ขัดกันจนผู้ใช้สับสน
+  if (state.lat && state.lng) {
+    setMarker(state.lat, state.lng);
+    map.setView([state.lat, state.lng], 16);
+  }
 }
 function setMarker(lat, lng) {
   state.lat = lat; state.lng = lng;
@@ -679,15 +705,23 @@ const pickPhotoBtn = document.getElementById('pickPhotoBtn');
 takePhotoBtn.addEventListener('click', () => cameraInput.click());
 pickPhotoBtn.addEventListener('click', () => galleryInput.click());
 
+const MAX_SOURCE_PHOTO_BYTES = 25 * 1024 * 1024;
+
 async function handlePhotoFile(e) {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file || state.photos.length >= 3) return;
+  // ไฟล์ใหญ่มากอาจทำให้ canvas ในเว็บวิวของ LINE หน่วยความจำไม่พอแล้วแท็บดับไปเฉยๆ
+  if (file.size > MAX_SOURCE_PHOTO_BYTES) {
+    alert('รูปนี้ใหญ่เกินไป กรุณาเลือกรูปที่เล็กกว่านี้');
+    return;
+  }
   try {
     const dataUrl = await compressImage(file, 1280, 0.7);
     state.photos.push(dataUrl);
     renderPhotos();
   } catch (err) {
+    console.error('แนบรูปไม่สำเร็จ:', err);
     alert('ไม่สามารถแนบรูปนี้ได้ ลองรูปอื่น');
   }
 }
@@ -774,11 +808,15 @@ submitBtn.addEventListener('click', async () => {
   setFieldError('field-submit', false);
   try {
     const idToken = liff.getIDToken();
+    // idToken เป็น null ถ้า LIFF scope ไม่มี openid — จับตรงนี้เพื่อบอกสาเหตุที่แก้ได้จริง
+    // แทนที่จะปล่อยไปให้ backend ตีกลับเป็น "id token verification failed" ลอยๆ
+    if (!idToken) throw new Error('ไม่ได้รับ idToken — ตรวจว่า LIFF app เปิด scope "openid" แล้วหรือยัง');
     const profile = await liff.getProfile();
     const payload = {
       type: 'newCase',
       userId: profile.userId,
       idToken: idToken,
+      policyVersion: CONFIG.POLICY_VERSION,
       requestId: sessionId, // สุ่มครั้งเดียวตอนเปิดหน้า — ถ้าเน็ตกระตุกแล้วกดส่งซ้ำ backend จะรู้ว่าเป็น retry ไม่สร้างเคสซ้ำ
       detail: state.detail,
       category: state.category,
@@ -796,7 +834,15 @@ submitBtn.addEventListener('click', async () => {
       headers: { 'Content-Type': 'text/plain' }, // เลี่ยง CORS preflight ของ Apps Script
       body: JSON.stringify(payload)
     });
-    const result = await resp.json();
+    const raw = await resp.text();
+    let result;
+    try {
+      result = JSON.parse(raw);
+    } catch (parseErr) {
+      // Apps Script ตอบ HTML แทน JSON = deploy ผิดแบบ (ต้องเป็น Access: Anyone)
+      // เดิมเคสนี้ตกไปที่ catch รวมแล้วขึ้นข้อความเดียวกับ error อื่นทั้งหมด แยกไม่ออกเลย
+      throw new Error('เซิร์ฟเวอร์ไม่ได้ตอบเป็น JSON — ตรวจว่า Apps Script deploy เป็น Access: Anyone แล้วหรือยัง (' + raw.slice(0, 80) + ')');
+    }
     if (!result.ok) throw new Error(result.error || 'ส่งเรื่องไม่สำเร็จ');
 
     logEvent('submitted', 4);
@@ -806,8 +852,12 @@ submitBtn.addEventListener('click', async () => {
     document.getElementById('progress').style.display = 'none';
     document.getElementById('receipt').classList.add('show');
   } catch (err) {
+    // เดิมกลืน err ทิ้ง ทำให้ทุกความล้มเหลวขึ้นข้อความเดียวกันหมดจนแยกสาเหตุไม่ได้
+    console.error('ส่งเรื่องไม่สำเร็จ:', err);
+    const field = document.getElementById('field-submit');
+    field.querySelector('.error').textContent = 'ส่งเรื่องไม่สำเร็จ กรุณาลองใหม่อีกครั้ง (' + (err && err.message ? err.message : 'ไม่ทราบสาเหตุ') + ')';
     setFieldError('field-submit', true);
-    document.getElementById('field-submit').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = 'ส่งเรื่อง';
@@ -821,15 +871,79 @@ document.getElementById('closeBtn').addEventListener('click', () => {
 // ============================================================
 // Init
 // ============================================================
-liff.init({ liffId: CONFIG.LIFF_ID })
-  .then(() => {
-    if (!liff.isLoggedIn() && !liff.isInClient()) { liff.login(); return; }
+// รายละเอียดทางเทคนิคซ่อนไว้เบื้องหลัง ?debug=1 — ประชาชนไม่ควรเห็นชื่อไฟล์หรือชื่อตัวแปรในโค้ด
+// เพราะไม่ช่วยให้เขาทำอะไรได้ และทำให้ระบบดูพัง ทีมงานเปิด LIFF URL แล้วต่อท้าย ?debug=1 เพื่อดูสาเหตุจริง
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+
+/**
+ * @param {string} userMessage  ข้อความที่ประชาชนเห็น — บอกว่าทำอะไรต่อได้ ไม่ใช่บอกว่าโค้ดพังตรงไหน
+ * @param {string} technicalDetail  ลง console เสมอ แต่แสดงบนหน้าเฉพาะโหมด debug
+ * @param {boolean} fatal  ถ้ากรอกฟอร์มต่อไปก็ส่งไม่ได้อยู่ดี ให้ซ่อนฟอร์มทิ้ง ไม่ให้เสียเวลากรอก 4 ขั้นแล้วไปตายตอนกดส่ง
+ */
+function showInitError(userMessage, technicalDetail, fatal) {
+  console.error(userMessage, technicalDetail);
+  const box = document.getElementById('initError');
+  box.replaceChildren();
+
+  const title = document.createElement('strong');
+  title.textContent = userMessage;
+  box.appendChild(title);
+
+  if (fatal) {
+    const hint = document.createElement('span');
+    hint.textContent = 'ขออภัยในความไม่สะดวก ระหว่างนี้ทักแชทเข้ามาเล่าเรื่องกับทีมงานได้ตามปกติครับ';
+    box.appendChild(hint);
+  }
+
+  if (DEBUG) {
+    const code = document.createElement('code');
+    code.textContent = technicalDetail;
+    box.appendChild(code);
+  }
+
+  box.classList.add('show');
+
+  if (fatal) {
+    document.getElementById('caseForm').style.display = 'none';
+    document.getElementById('progress').style.display = 'none';
+  }
+}
+
+function startForm() {
+  // แยก error ของ liff.init ออกจาก error ที่เกิดหลัง init สำเร็จ
+  // ไม่งั้นความผิดพลาดคนละเรื่องจะขึ้นข้อความว่า "เปิดผ่านเมนูในแอป LINE" เหมือนกันหมด ทั้งที่ไม่ใช่สาเหตุ
+  try {
     restoreDraft();
     logEvent('step_view', 1);
-  })
-  .catch((err) => {
-    alert('เปิดฟอร์มไม่สำเร็จ กรุณาเปิดผ่านเมนูในแอป LINE');
-  });
+  } catch (err) {
+    // ไม่ fatal — ฟอร์มยังกรอกและส่งได้ตามปกติ แค่กู้ร่างเดิมไม่ได้
+    showInitError('โหลดข้อมูลที่เคยกรอกไว้ไม่สำเร็จ แต่กรอกใหม่และส่งเรื่องได้ตามปกติครับ',
+      String(err && err.message || err), false);
+  }
+}
+
+if (typeof liff === 'undefined') {
+  // SDK ของ LINE โหลดไม่ขึ้น (เน็ตหลุด หรือโดนบล็อก) — ถ้าไม่ดักตรงนี้หน้าจะว่างเปล่าโดยไม่บอกอะไรเลย
+  showInitError('เชื่อมต่อไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วเปิดใหม่อีกครั้ง',
+    'liff sdk ไม่ถูกโหลด (static.line-scdn.net)', true);
+} else if (!CONFIG.LIFF_ID || CONFIG.LIFF_ID.indexOf('PASTE_') === 0) {
+  showInitError('ระบบยังไม่พร้อมใช้งาน',
+    'CONFIG.LIFF_ID ในไฟล์ form-v3.html ยังเป็นค่าตั้งต้น (' + CONFIG.LIFF_ID + ')', true);
+} else {
+  liff.init({ liffId: CONFIG.LIFF_ID })
+    .then(() => {
+      if (!liff.isLoggedIn() && !liff.isInClient()) { liff.login(); return; }
+      startForm();
+    })
+    .catch((err) => {
+      // LIFF error มี code แยกจาก message เช่น INVALID_ARGUMENT (liffId ผิด) หรือ
+      // INIT_FAILED (endpoint URL ที่ตั้งไว้ใน LIFF app ไม่ตรงกับ URL ที่เปิดอยู่จริง)
+      const code = err && err.code ? err.code : 'UNKNOWN';
+      const message = err && err.message ? err.message : String(err);
+      showInitError('เปิดฟอร์มไม่สำเร็จ กรุณาเปิดผ่านเมนูในแอป LINE',
+        `${code}: ${message}\nliffId=${CONFIG.LIFF_ID}\nurl=${location.href}`, true);
+    });
+}
 </script>
 </body>
 </html>

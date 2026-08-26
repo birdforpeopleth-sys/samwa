@@ -78,9 +78,9 @@
 
 <script>
 const CONFIG = {
-  LIFF_ID: '2011276371-oRn2zqWE',
-  ENDPOINT: 'https://script.google.com/macros/s/AKfycbzQWmGaUGz3zF47dvTpdeDXuxt2vUpsV9FpWubD5_ArxZiTzhwMdsyPYNjnl0dgvLJq/exec',
-  REPORT_LIFF_URL: 'https://liff.line.me/2011276371-oRn2zqWE'
+  LIFF_ID: 'PASTE_LIFF_ID_HISTORY',
+  ENDPOINT: 'PASTE_APPS_SCRIPT_EXEC_URL',
+  REPORT_LIFF_URL: 'PASTE_LIFF_URL_REPORT'
 };
 
 const STATUS_STYLES = {
@@ -94,16 +94,41 @@ let historyAuth = null;
 
 document.getElementById('newCaseLink').href = CONFIG.REPORT_LIFF_URL;
 
+// รายละเอียดทางเทคนิคซ่อนไว้เบื้องหลัง ?debug=1 — ประชาชนไม่ควรเห็นชื่อไฟล์หรือชื่อตัวแปรในโค้ด
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+
 function setState(html) {
   document.getElementById('stateArea').innerHTML = html;
 }
 
-function formatDate(iso) {
-  try {
-    return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch (e) {
-    return iso;
+function showLoadError(userMessage, technicalDetail) {
+  console.error(userMessage, technicalDetail);
+  setState('');
+  const area = document.getElementById('stateArea');
+  const box = document.createElement('div');
+  box.className = 'state-msg';
+  const icon = document.createElement('span');
+  icon.className = 'icon';
+  icon.textContent = '⚠️';
+  box.appendChild(icon);
+  box.appendChild(document.createTextNode(userMessage));
+  if (DEBUG) {
+    const code = document.createElement('div');
+    code.className = 'photo-error';
+    code.style.marginTop = '10px';
+    code.style.wordBreak = 'break-word';
+    code.textContent = technicalDetail;
+    box.appendChild(code);
   }
+  area.appendChild(box);
+}
+
+function formatDate(iso) {
+  if (!iso) return 'ไม่ทราบวันที่';
+  const d = new Date(iso);
+  // new Date() ที่แปลงไม่ได้จะไม่ throw แต่คืน Invalid Date แล้วแสดงคำว่า "Invalid Date" ให้ประชาชนเห็น
+  if (isNaN(d.getTime())) return 'ไม่ทราบวันที่';
+  return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function escapeHtml(str) {
@@ -149,12 +174,12 @@ function renderCases(cases) {
     if (photoCount) {
       const button = card.querySelector('.photo-load-btn');
       const container = card.querySelector('.case-photos');
-      button.addEventListener('click', () => loadCasePhotos(c.caseNo, button, container));
+      button.addEventListener('click', () => loadCasePhotos(c.caseNo, button, container, photoCount));
     }
   });
 }
 
-async function loadCasePhotos(caseNo, button, container) {
+async function loadCasePhotos(caseNo, button, container, expectedCount) {
   if (!historyAuth) return;
   button.disabled = true;
   button.textContent = 'กำลังโหลดรูป...';
@@ -181,18 +206,34 @@ async function loadCasePhotos(caseNo, button, container) {
       container.appendChild(img);
     });
     button.remove();
+    // บอกตรงๆ ถ้าเปิดได้ไม่ครบ ดีกว่าให้เข้าใจว่าแนบมาเท่านี้แต่แรก
+    if (expectedCount && result.photos.length < expectedCount) {
+      const note = document.createElement('div');
+      note.className = 'photo-error';
+      note.textContent = `เปิดดูได้ ${result.photos.length} จาก ${expectedCount} รูป`;
+      container.parentNode.insertBefore(note, container.nextSibling);
+    }
   } catch (err) {
+    console.error('โหลดรูปไม่สำเร็จ:', err);
     container.innerHTML = '<div class="photo-error">โหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</div>';
     button.disabled = false;
     button.textContent = 'ลองโหลดรูปอีกครั้ง';
   }
 }
 
+if (typeof liff === 'undefined') {
+  showLoadError('เชื่อมต่อไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วเปิดใหม่อีกครั้ง',
+    'liff sdk ไม่ถูกโหลด (static.line-scdn.net)');
+} else if (!CONFIG.LIFF_ID || CONFIG.LIFF_ID.indexOf('PASTE_') === 0) {
+  showLoadError('ระบบยังไม่พร้อมใช้งาน',
+    'CONFIG.LIFF_ID ในไฟล์ history.html ยังเป็นค่าตั้งต้น (' + CONFIG.LIFF_ID + ')');
+} else {
 liff.init({ liffId: CONFIG.LIFF_ID })
   .then(async () => {
     if (!liff.isLoggedIn() && !liff.isInClient()) { liff.login(); return; }
     setState('<div class="state-msg">กำลังโหลด...</div>');
     const idToken = liff.getIDToken();
+    if (!idToken) throw new Error('ไม่ได้รับ idToken — ตรวจว่า LIFF app เปิด scope "openid" แล้วหรือยัง');
     const profile = await liff.getProfile();
     historyAuth = { userId: profile.userId, idToken };
     const resp = await fetch(CONFIG.ENDPOINT, {
@@ -200,13 +241,23 @@ liff.init({ liffId: CONFIG.LIFF_ID })
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ type: 'getHistory', userId: profile.userId, idToken })
     });
-    const result = await resp.json();
+    const raw = await resp.text();
+    let result;
+    try {
+      result = JSON.parse(raw);
+    } catch (parseErr) {
+      throw new Error('เซิร์ฟเวอร์ไม่ได้ตอบเป็น JSON — ตรวจว่า Apps Script deploy เป็น Access: Anyone แล้วหรือยัง');
+    }
     if (!result.ok) throw new Error(result.error || 'โหลดไม่สำเร็จ');
     renderCases(result.cases);
   })
-  .catch(() => {
-    setState('<div class="state-msg"><span class="icon">⚠️</span>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</div>');
+  .catch((err) => {
+    const code = err && err.code ? err.code + ': ' : '';
+    const message = err && err.message ? err.message : String(err);
+    showLoadError('โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+      `${code}${message}\nliffId=${CONFIG.LIFF_ID}\nurl=${location.href}`);
   });
+}
 </script>
 </body>
 </html>

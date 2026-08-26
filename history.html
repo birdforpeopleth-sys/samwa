@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ประวัติการแจ้งเรื่อง — ประชาชนคลองสามวา</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root {
+    --ink: #271C16; --muted:#76675E; --paper:#FBF7F2; --surface:#fff;
+    --brand:#E35A12; --brand-strong:#B93C08; --line:#E8DDD3;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:radial-gradient(circle at 100% 0,rgba(227,90,18,.08),transparent 250px),var(--paper); color:var(--ink); font-family:'IBM Plex Sans Thai',sans-serif; line-height:1.6; }
+  .serif { font-family: 'Noto Serif Thai', serif; }
+  header.topbar { display:flex; align-items:center; gap:11px; max-width:480px; margin:0 auto; padding:18px 16px 13px; border-bottom:1px solid var(--line); }
+  .brand-mark { width:40px; height:40px; flex:0 0 40px; border-radius:50%; display:grid; place-items:center; background:var(--brand-strong); color:#fff; font-family:'Noto Serif Thai',serif; font-size:.86rem; font-weight:700; box-shadow:0 4px 12px rgba(185,60,8,.2); }
+  .brand-copy { line-height:1.25; }
+  .brand-copy small { display:block; color:var(--muted); font-size:.7rem; }
+  header.topbar h1 { font-size:1rem; margin:2px 0 0; }
+  .app { max-width:480px; margin:0 auto; padding:25px 16px 104px; }
+  .page-heading { margin:0 0 20px; }
+  .page-heading .eyebrow { color:var(--brand-strong); font-size:.76rem; font-weight:700; margin:0 0 4px; }
+  .page-heading h2 { font-size:1.55rem; margin:0 0 5px; line-height:1.3; }
+  .page-heading p { color:var(--muted); font-size:.88rem; margin:0; }
+
+  .state-msg { text-align:center; padding:48px 16px; color:var(--muted); }
+  .state-msg .icon { font-size:2.2rem; margin-bottom:10px; display:block; }
+
+  .case-card {
+    background:var(--surface); border-radius:16px; border:1px solid var(--line); border-left:4px solid var(--brand);
+    padding:16px 17px; margin-bottom:12px; box-shadow:0 5px 18px rgba(75,43,25,.055);
+  }
+  .case-card .top-row { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+  .case-no { font-size:1.05rem; font-weight:700; letter-spacing:0.5px; }
+  .badge { font-size:0.78rem; font-weight:700; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+  .meta { font-size:0.85rem; color:var(--muted); }
+  .date { font-size:0.78rem; color:var(--muted); margin-top:4px; }
+  .photo-load-btn { margin-top:12px; padding:9px 12px; border:1px solid var(--line); border-radius:10px; background:#FFF8F2; color:var(--brand-strong); font-family:inherit; font-size:.82rem; font-weight:600; cursor:pointer; }
+  .photo-load-btn:disabled { opacity:.65; cursor:wait; }
+  .case-photos { display:flex; gap:8px; margin-top:10px; overflow-x:auto; padding-bottom:2px; }
+  .case-photos img { width:76px; height:76px; flex:0 0 76px; object-fit:cover; border-radius:11px; border:1px solid var(--line); background:#F4EEE9; }
+  .photo-error { color:#B3261E; font-size:.78rem; margin-top:8px; }
+  .screening-box { margin-top:12px; padding:11px 12px; border-radius:11px; background:#F6F0EA; font-size:.82rem; }
+  .screening-box.accepted { background:#EEF7EC; }
+  .screening-box.waiting { background:#FFF6DC; }
+  .screening-title { display:block; font-weight:700; margin-bottom:2px; }
+  .screening-reason { color:var(--muted); }
+
+  .new-case-btn {
+    position:fixed; left:16px; right:16px; bottom:16px; max-width:448px; margin:0 auto;
+    display:block; text-align:center; text-decoration:none;
+    background:var(--brand-strong); color:#fff; font-weight:700; padding:16px; border-radius:14px;
+    font-size:1rem; box-shadow:0 7px 20px rgba(185,60,8,.22);
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand-mark">คสว</div>
+  <div class="brand-copy"><small>ประชาชนคลองสามวา</small><h1 class="serif">ระบบรับเรื่องประชาชน</h1></div>
+</header>
+
+<div class="app">
+  <div class="page-heading">
+    <p class="eyebrow">รายการของคุณ</p>
+    <h2 class="serif">เรื่องที่เคยแจ้ง</h2>
+    <p>สถานะล่าสุดจากทีมงานจะแสดงอยู่ที่นี่</p>
+  </div>
+  <div id="stateArea"></div>
+  <div id="caseList"></div>
+</div>
+
+<a class="new-case-btn" id="newCaseLink" href="#">📝 แจ้งเรื่องใหม่</a>
+
+<script>
+const CONFIG = {
+  LIFF_ID: 'PASTE_LIFF_ID_HISTORY',
+  ENDPOINT: 'PASTE_APPS_SCRIPT_EXEC_URL',
+  REPORT_LIFF_URL: 'PASTE_LIFF_URL_REPORT'
+};
+
+const STATUS_STYLES = {
+  'รับเรื่อง': { bg: '#F4C7C3', text: '#4A1B0C' },
+  'ส่งต่อหน่วยงาน': { bg: '#FCE8B2', text: '#412402' },
+  'ติดตาม': { bg: '#BFE1F6', text: '#042C53' },
+  'ปิดเรื่อง': { bg: '#D9EAD3', text: '#173404' }
+};
+
+let historyAuth = null;
+
+document.getElementById('newCaseLink').href = CONFIG.REPORT_LIFF_URL;
+
+function setState(html) {
+  document.getElementById('stateArea').innerHTML = html;
+}
+
+function formatDate(iso) {
+  try {
+    return new Date(iso).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch (e) {
+    return iso;
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function renderCases(cases) {
+  if (!cases.length) {
+    setState('<div class="state-msg"><span class="icon">📭</span>ยังไม่มีเรื่องที่เคยแจ้งไว้</div>');
+    return;
+  }
+  setState('');
+  const list = document.getElementById('caseList');
+  list.innerHTML = '';
+  cases.forEach(c => {
+    const style = STATUS_STYLES[c.status] || { bg: '#eee', text: '#333' };
+    const screeningResult = String(c.screeningResult || '');
+    const screeningClass = screeningResult === 'รับดำเนินการ' ? 'accepted' : ['รอคัดกรอง', 'รอข้อมูลเพิ่มเติม'].includes(screeningResult) ? 'waiting' : '';
+    const screeningHtml = screeningResult ? `
+      <div class="screening-box ${screeningClass}">
+        <span class="screening-title">ผลการคัดกรอง · ${escapeHtml(screeningResult)}</span>
+        ${c.screeningReason ? `<span class="screening-reason">${escapeHtml(c.screeningReason)}</span>` : ''}
+      </div>` : '';
+    const photoCount = Number(c.photoCount) || 0;
+    const photoHtml = photoCount ? `
+      <button type="button" class="photo-load-btn">ดูรูปที่แนบ · ${photoCount} รูป</button>
+      <div class="case-photos" aria-live="polite"></div>` : '';
+    const card = document.createElement('div');
+    card.className = 'case-card';
+    card.innerHTML = `
+      <div class="top-row">
+        <span class="case-no serif">${escapeHtml(c.caseNo)}</span>
+        <span class="badge" style="background:${style.bg}; color:${style.text};">${escapeHtml(c.status)}</span>
+      </div>
+      <div class="meta">${escapeHtml(c.category)} · ${escapeHtml(c.ward)}</div>
+      <div class="date">แจ้งเมื่อ ${formatDate(c.dateIn)}</div>
+      ${screeningHtml}
+      ${photoHtml}
+    `;
+    list.appendChild(card);
+    if (photoCount) {
+      const button = card.querySelector('.photo-load-btn');
+      const container = card.querySelector('.case-photos');
+      button.addEventListener('click', () => loadCasePhotos(c.caseNo, button, container));
+    }
+  });
+}
+
+async function loadCasePhotos(caseNo, button, container) {
+  if (!historyAuth) return;
+  button.disabled = true;
+  button.textContent = 'กำลังโหลดรูป...';
+  container.innerHTML = '';
+  try {
+    const resp = await fetch(CONFIG.ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        type: 'getCasePhotos',
+        caseNo,
+        userId: historyAuth.userId,
+        idToken: historyAuth.idToken
+      })
+    });
+    const result = await resp.json();
+    if (!result.ok) throw new Error(result.error || 'โหลดรูปไม่สำเร็จ');
+    if (!result.photos.length) throw new Error('ไม่พบรูปที่เปิดดูได้');
+
+    result.photos.forEach((src, i) => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = `รูปประกอบที่ ${i + 1}`;
+      container.appendChild(img);
+    });
+    button.remove();
+  } catch (err) {
+    container.innerHTML = '<div class="photo-error">โหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</div>';
+    button.disabled = false;
+    button.textContent = 'ลองโหลดรูปอีกครั้ง';
+  }
+}
+
+liff.init({ liffId: CONFIG.LIFF_ID })
+  .then(async () => {
+    if (!liff.isLoggedIn() && !liff.isInClient()) { liff.login(); return; }
+    setState('<div class="state-msg">กำลังโหลด...</div>');
+    const idToken = liff.getIDToken();
+    const profile = await liff.getProfile();
+    historyAuth = { userId: profile.userId, idToken };
+    const resp = await fetch(CONFIG.ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ type: 'getHistory', userId: profile.userId, idToken })
+    });
+    const result = await resp.json();
+    if (!result.ok) throw new Error(result.error || 'โหลดไม่สำเร็จ');
+    renderCases(result.cases);
+  })
+  .catch(() => {
+    setState('<div class="state-msg"><span class="icon">⚠️</span>โหลดข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</div>');
+  });
+</script>
+</body>
+</html>

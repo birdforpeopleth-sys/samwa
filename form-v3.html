@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แจ้งเรื่อง — ประชาชนคลองสามวา</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --ink: #271C16;
+    --muted: #76675E;
+    --paper: #FBF7F2;
+    --surface: #FFFFFF;
+    --brand: #E35A12;
+    --brand-strong: #B93C08;
+    --brand-soft: #FFF0E5;
+    --line: #E8DDD3;
+    --danger: #B3261E;
+    --btn-height: 56px;
+    --shadow: 0 8px 24px rgba(75, 43, 25, .07);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(circle at 100% 0, rgba(227,90,18,.08), transparent 250px),
+      var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans Thai', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  h1, h2, .serif { font-family: 'Noto Serif Thai', serif; }
+  .app { max-width: 480px; margin: 0 auto; padding: 0 16px 112px; }
+  header.topbar {
+    display: flex; align-items: center; gap: 11px;
+    max-width: 480px; margin: 0 auto; padding: 18px 16px 13px;
+  }
+  .brand-mark {
+    width: 40px; height: 40px; border-radius: 50%; flex: 0 0 40px;
+    display: grid; place-items: center; background: var(--brand-strong); color: #fff;
+    font-family: 'Noto Serif Thai', serif; font-weight: 700; font-size: .86rem;
+    box-shadow: 0 4px 12px rgba(185,60,8,.2);
+  }
+  .brand-copy { line-height: 1.25; }
+  .brand-copy small { display: block; color: var(--muted); font-size: .7rem; letter-spacing: .03em; }
+  header.topbar h1 { font-size: 1rem; margin: 2px 0 0; }
+
+  .draft-banner {
+    background: var(--brand-soft); border-radius: 12px;
+    padding: 11px 14px; margin: 4px 0 14px; font-size: 0.88rem; display: none;
+  }
+  .draft-banner.show { display: block; }
+
+  .steps-progress {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
+    margin: 4px 0 27px; border-top: 1px solid var(--line); padding-top: 14px;
+  }
+  .steps-progress span { color: #A3968D; text-align: center; font-size: .65rem; position: relative; }
+  .steps-progress span::before {
+    content: attr(data-step); display: grid; place-items: center; width: 25px; height: 25px;
+    margin: 0 auto 4px; border-radius: 50%; background: #EFE7E0; color: #887A71;
+    font-size: .72rem; font-weight: 700;
+  }
+  .steps-progress span.active { color: var(--brand-strong); font-weight: 600; }
+  .steps-progress span.active::before { background: var(--brand-strong); color: #fff; box-shadow: 0 3px 10px rgba(185,60,8,.18); }
+  .steps-progress span.done { color: var(--ink); }
+  .steps-progress span.done::before { content: '\2713'; background: var(--ink); color: #fff; }
+
+  .step { display: none; }
+  .step.active { display: block; animation: fadein .2s ease; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .step-heading { margin-bottom: 22px; }
+  .step-kicker { margin: 0 0 5px; color: var(--brand-strong); font-size: .76rem; font-weight: 700; letter-spacing: .04em; }
+  .step-heading h2 { font-size: 1.55rem; line-height: 1.3; margin: 0 0 7px; }
+  .step-heading p { margin: 0; color: var(--muted); font-size: .88rem; }
+
+  label { display: block; font-weight: 600; margin-bottom: 8px; }
+  textarea, input[type=text], input[type=tel], select {
+    width: 100%; padding: 15px; border: 1px solid var(--line); border-radius: 13px;
+    font-family: inherit; font-size: 1rem; background: var(--surface); color: var(--ink);
+    box-shadow: 0 2px 8px rgba(75,43,25,.035);
+  }
+  textarea { min-height: 150px; resize: vertical; }
+  textarea:focus, input:focus, select:focus { outline: 3px solid rgba(227,90,18,.18); border-color: var(--brand); }
+  textarea::placeholder, input::placeholder { color: #A99C93; }
+
+  .field { margin-bottom: 20px; }
+  .field .error {
+    display: none; color: var(--danger); font-size: 0.85rem; margin-top: 6px; font-weight: 600;
+  }
+  .field.invalid textarea, .field.invalid input, .field.invalid select { border-color: var(--danger); }
+  .field.invalid .error { display: block; }
+
+  .cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .cat-btn {
+    display: flex; align-items: center; text-align: left; gap: 10px;
+    padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+    cursor: pointer; font-family: inherit; color: var(--ink); font-size: 0.82rem; line-height: 1.35;
+    min-height: 72px; box-shadow: 0 3px 12px rgba(75,43,25,.035);
+  }
+  .cat-btn .emoji { display: grid; place-items: center; flex: 0 0 35px; height: 35px; border-radius: 10px; background: #F6F0EA; font-size: 1.15rem; }
+  .cat-btn[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); font-weight: 700; box-shadow: 0 4px 14px rgba(185,60,8,.09); }
+  .cat-btn[aria-pressed="true"] .emoji { background: #fff; }
+
+  .optional-card { background: rgba(255,255,255,.6); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+  .place-search { margin: 10px 0 12px; }
+  .search-row { display: flex; gap: 8px; }
+  .search-row input { min-width: 0; }
+  .search-btn {
+    flex: 0 0 auto; padding: 0 15px; border: 0; border-radius: 12px;
+    background: var(--ink); color: #fff; font-family: inherit; font-weight: 700; cursor: pointer;
+  }
+  .search-btn:disabled { opacity: .55; cursor: wait; }
+  .field-hint { margin: 6px 0 0; color: var(--muted); font-size: .75rem; line-height: 1.45; }
+  .search-results { display: grid; gap: 7px; margin-top: 9px; }
+  .search-result {
+    width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px;
+    background: var(--surface); color: var(--ink); text-align: left; font-family: inherit;
+    font-size: .8rem; line-height: 1.4; cursor: pointer;
+  }
+  .search-message { padding: 9px 2px 0; color: var(--muted); font-size: .78rem; }
+  .search-message.error { color: var(--danger); }
+  .search-attribution { margin-top: 7px; color: var(--muted); font-size: .68rem; }
+  #map { height: 210px; border-radius: 12px; margin-top: 10px; border: 0; overflow: hidden; }
+  .locate-btn {
+    margin-top: 9px; background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 11px; padding: 11px 14px; font-size: 0.9rem; font-weight: 600; cursor: pointer; width: 100%;
+  }
+
+  .photo-row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .photo-thumb { position: relative; width: 84px; height: 84px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+  .photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-thumb button {
+    position: absolute; top: 2px; right: 2px; background: rgba(14,46,42,.8); color: #fff;
+    border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; line-height: 1;
+  }
+  .photo-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .photo-btn {
+    flex: 1; background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 11px; padding: 12px 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .photo-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .review-box { background: var(--surface); border-radius: 16px; padding: 17px; margin-bottom: 20px; border-top: 3px solid var(--brand); box-shadow: var(--shadow); }
+  .review-box dt { font-size: 0.75rem; color: var(--muted); margin-top: 12px; }
+  .review-box dt:first-child { margin-top: 0; }
+  .review-box dd { margin: 2px 0 0; font-weight: 500; }
+  .review-photos { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .review-photos img {
+    width: 74px; height: 74px; flex: 0 0 74px; object-fit: cover;
+    border-radius: 11px; border: 1px solid var(--line); background: #F4EEE9;
+  }
+
+  .checkbox-row { display: flex; align-items: flex-start; gap: 10px; margin: 16px 0; padding: 13px; border-radius: 12px; background: rgba(255,255,255,.68); }
+  .checkbox-row input { width: 22px; height: 22px; margin-top: 2px; flex-shrink: 0; accent-color: var(--brand-strong); }
+  .checkbox-row label { font-weight: 500; margin: 0; }
+
+  .nav-row {
+    display: flex; gap: 10px; position: sticky; bottom: 0; z-index: 500;
+    margin: 24px -16px -96px; padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, rgba(251,247,242,0), var(--paper) 18px);
+  }
+  button.primary, button.secondary {
+    flex: 1; min-height: var(--btn-height); border-radius: 14px; font-size: 1rem;
+    font-weight: 700; cursor: pointer; border: none; font-family: inherit;
+  }
+  button.primary { background: var(--brand-strong); color: #fff; box-shadow: 0 6px 18px rgba(185,60,8,.2); }
+  button.primary:disabled { background: #D8CFC8; color: #8E8178; box-shadow: none; cursor: not-allowed; }
+  button.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
+
+  /* ใบรับเรื่อง */
+  #receipt { display: none; padding: 8px 0 24px; }
+  #receipt.show { display: block; }
+  .receipt-card {
+    background: #fff; border-radius: 7px; padding: 35px 24px 44px; text-align: center; position: relative;
+    border-top: 5px solid var(--brand); box-shadow: 0 14px 38px rgba(75,43,25,.12);
+  }
+  .receipt-card::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 16px;
+    background-image: radial-gradient(circle at 8px 0, transparent 8px, #fff 8.5px);
+    background-size: 16px 16px; background-position: -8px -8px; background-repeat: repeat-x;
+  }
+  .seal {
+    width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--brand-strong); margin: 0 auto 18px;
+    display: flex; align-items: center; justify-content: center; color: var(--brand-strong);
+    font-family: 'Noto Serif Thai', serif; font-size: 1rem; font-weight: 700; transform: rotate(-3deg);
+  }
+  .receipt-case-no { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; margin: 8px 0; }
+  .receipt-status { color: var(--brand-strong); font-weight: 700; margin-bottom: 20px; }
+  .receipt-hint { font-size: 0.85rem; color: var(--muted); margin-top: 20px; }
+  #closeBtn { margin-top: 24px; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand-mark">คสว</div>
+  <div class="brand-copy">
+    <small>ประชาชนคลองสามวา</small>
+    <h1 class="serif">ระบบรับเรื่องประชาชน</h1>
+  </div>
+</header>
+
+<div class="app">
+  <div id="draftBanner" class="draft-banner">กู้คืนข้อมูลที่กรอกไว้ก่อนหน้านี้แล้วครับ</div>
+
+  <div class="steps-progress" id="progress">
+    <span data-step="1">รายละเอียด</span><span data-step="2">ประเภท</span><span data-step="3">สถานที่</span><span data-step="4">ตรวจทาน</span>
+  </div>
+
+  <form id="caseForm">
+    <!-- STEP 1: เล่าปัญหา -->
+    <section class="step active" data-step="1">
+      <div class="step-heading">
+        <p class="step-kicker">ขั้นที่ 1 จาก 4</p>
+        <h2>เล่าให้เราฟังว่าเกิดอะไรขึ้น</h2>
+        <p>ใช้เวลาไม่ถึง 3 นาที แล้วรับเลขติดตามเรื่องทันที</p>
+      </div>
+      <div class="field" id="field-detail">
+        <label for="detail">เล่าปัญหาที่พบ</label>
+        <textarea id="detail" placeholder="เช่น ไฟถนนดับบริเวณ... มาตั้งแต่..." maxlength="1000"></textarea>
+        <div class="error">กรุณาอธิบายอย่างน้อย 10 ตัวอักษร</div>
+      </div>
+      <div class="nav-row">
+        <button type="button" class="primary" data-next disabled>ถัดไป</button>
+      </div>
+    </section>
+
+    <!-- STEP 2: เลือกประเภท -->
+    <section class="step" data-step="2">
+      <div class="step-heading">
+        <p class="step-kicker">ขั้นที่ 2 จาก 4</p>
+        <h2>เลือกประเภทเรื่อง</h2>
+        <p>เลือกหัวข้อที่ใกล้เคียงที่สุด ทีมงานสามารถแก้ไขภายหลังได้</p>
+      </div>
+      <div class="field" id="field-category">
+        <label>เรื่องนี้เกี่ยวกับอะไร</label>
+        <div class="cat-grid" id="catGrid"></div>
+        <div class="error">กรุณาเลือกประเภทเรื่อง</div>
+      </div>
+      <div class="nav-row">
+        <button type="button" class="secondary" data-back>ย้อนกลับ</button>
+        <button type="button" class="primary" data-next disabled>ถัดไป</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: แขวง + แผนที่ + รูป -->
+    <section class="step" data-step="3">
+      <div class="step-heading">
+        <p class="step-kicker">ขั้นที่ 3 จาก 4</p>
+        <h2>ช่วยระบุตำแหน่ง</h2>
+        <p>เกือบเสร็จแล้ว—ระบุเท่าที่ทราบ เพื่อให้ทีมงานตามจุดได้ง่ายขึ้น</p>
+      </div>
+      <div class="field" id="field-ward">
+        <label for="ward">แขวง</label>
+        <select id="ward">
+          <option value="">— เลือกแขวง —</option>
+        </select>
+        <div class="error">กรุณาเลือกแขวง</div>
+      </div>
+      <div class="field optional-card">
+        <label>ตำแหน่งจุดเกิดเหตุ (ถ้าทราบ)</label>
+        <div class="place-search">
+          <div class="search-row">
+            <input type="text" id="placeSearch" placeholder="ชื่อสถานที่ ซอย ถนน หรือวัด" maxlength="120">
+            <button type="button" class="search-btn" id="placeSearchBtn">ค้นหา</button>
+          </div>
+          <p class="field-hint">ค้นหาเฉพาะชื่อสถานที่ ไม่ควรใส่ชื่อบุคคล เบอร์โทร หรือข้อมูลส่วนตัว</p>
+          <div class="search-results" id="searchResults" aria-live="polite"></div>
+        </div>
+        <div id="map"></div>
+        <button type="button" class="locate-btn" id="locateBtn">📍 ใช้ตำแหน่งปัจจุบัน</button>
+      </div>
+      <div class="field">
+        <label for="landmark">จุดสังเกต / ที่อยู่โดยประมาณ (ไม่บังคับ)</label>
+        <input type="text" id="landmark" placeholder="เช่น ตรงข้ามวัด... ปากซอย... หน้าบ้านเลขที่...">
+      </div>
+      <div class="field">
+        <label>รูปประกอบ (ไม่เกิน 3 รูป)</label>
+        <div class="photo-row" id="photoRow"></div>
+        <div class="photo-actions" id="photoActions">
+          <button type="button" class="photo-btn" id="takePhotoBtn">📷 ถ่ายรูป</button>
+          <button type="button" class="photo-btn" id="pickPhotoBtn">🖼️ เลือกจากคลังภาพ</button>
+        </div>
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
+        <input type="file" id="galleryInput" accept="image/*" style="display:none">
+      </div>
+      <div class="nav-row">
+        <button type="button" class="secondary" data-back>ย้อนกลับ</button>
+        <button type="button" class="primary" data-next disabled>ถัดไป</button>
+      </div>
+    </section>
+
+    <!-- STEP 4: ตรวจทาน + ติดต่อ -->
+    <section class="step" data-step="4">
+      <div class="step-heading">
+        <p class="step-kicker">ขั้นที่ 4 จาก 4</p>
+        <h2>ตรวจทานก่อนส่ง</h2>
+        <p>ข้อมูลติดต่อไม่บังคับ และเลือกซ่อนจากทีมงานได้</p>
+      </div>
+      <div class="review-box" id="reviewBox"></div>
+
+      <div class="field">
+        <label for="name">ชื่อ (ไม่บังคับ)</label>
+        <input type="text" id="name" placeholder="ชื่อ-นามสกุล">
+      </div>
+      <div class="field">
+        <label for="phone">เบอร์ติดต่อ (ไม่บังคับ)</label>
+        <input type="tel" id="phone" placeholder="08xxxxxxxx">
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="hideContact">
+        <label for="hideContact">ไม่แสดงชื่อและเบอร์ให้ทีมงานเห็น (ยังแจ้งสถานะผ่านแชทนี้ได้ตามปกติ)</label>
+      </div>
+
+      <div class="field" id="field-consent">
+        <div class="checkbox-row">
+          <input type="checkbox" id="consent">
+          <label for="consent">รับทราบและยินยอมตาม <a href="privacy.html" target="_blank" rel="noopener">นโยบายข้อมูลส่วนบุคคล</a></label>
+        </div>
+        <div class="error">กรุณายืนยันว่ารับทราบนโยบายข้อมูลส่วนบุคคลก่อนส่งเรื่อง</div>
+      </div>
+
+      <div class="field" id="field-submit">
+        <div class="error">ส่งเรื่องไม่สำเร็จ กรุณาลองใหม่อีกครั้ง</div>
+      </div>
+
+      <div class="nav-row">
+        <button type="button" class="secondary" data-back>ย้อนกลับ</button>
+        <button type="button" class="primary" id="submitBtn">ส่งเรื่อง</button>
+      </div>
+    </section>
+  </form>
+
+  <!-- ใบรับเรื่อง -->
+  <div id="receipt">
+    <div class="receipt-card">
+      <div class="seal">รับเรื่อง<br>คลองสามวา</div>
+      <div>ได้รับเรื่องเรียบร้อยแล้ว</div>
+      <div class="receipt-case-no serif" id="receiptCaseNo"></div>
+      <div class="receipt-status">รับเรื่อง</div>
+      <div>เราจะแจ้งความคืบหน้าให้ทางแชทนี้ครับ</div>
+      <div class="receipt-hint">แคปหน้าจอนี้เก็บไว้อ้างอิงได้ หรือกด "ดูประวัติ" ในแชทเมื่อไหร่ก็ได้เพื่อดูความคืบหน้า</div>
+    </div>
+    <button class="primary" id="closeBtn" type="button">ปิดหน้าต่าง</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ตั้งค่าก่อนใช้งาน
+// ============================================================
+const CONFIG = {
+  LIFF_ID: 'PASTE_LIFF_ID',
+  ENDPOINT: 'PASTE_APPS_SCRIPT_EXEC_URL'
+};
+
+const CATEGORIES = [
+  { id: 'ถนน/ทางเท้าชำรุด', emoji: '🛣️' },
+  { id: 'ไฟฟ้าส่องสว่างดับ', emoji: '💡' },
+  { id: 'น้ำท่วม/ท่อระบายน้ำ', emoji: '🌊' },
+  { id: 'ขยะ/ความสะอาด', emoji: '🗑️' },
+  { id: 'ความปลอดภัย/อาชญากรรม', emoji: '🚨' },
+  { id: 'สัตว์จรจัด', emoji: '🐕' },
+  { id: 'สวัสดิการ/ขอความช่วยเหลือ', emoji: '🤝' },
+  { id: 'เสียงรบกวน/มลพิษ', emoji: '🔊' },
+  { id: 'สาธารณูปโภคอื่นๆ', emoji: '🏗️' },
+  { id: 'เรื่องอื่นๆ', emoji: '📋' }
+];
+
+const WARDS = ['สามวาตะวันตก', 'สามวาตะวันออก', 'บางชัน', 'ทรายกองดิน', 'ทรายกองดินใต้'];
+
+const DEFAULT_CENTER = [13.8595, 100.7245]; // เขตคลองสามวา (ประมาณ)
+const DRAFT_KEY = 'ksw_draft_v1';
+const sessionId = 'ses_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function logEvent(eventName, step) {
+  try {
+    const payload = JSON.stringify({ type: 'event', event: eventName, step: step || '', sessionId });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(CONFIG.ENDPOINT, new Blob([payload], { type: 'text/plain' }));
+    } else {
+      fetch(CONFIG.ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: payload, keepalive: true }).catch(() => {});
+    }
+  } catch (e) { /* เก็บ analytics ไม่สำเร็จ ไม่กระทบการใช้งานฟอร์ม */ }
+}
+
+// ============================================================
+// State
+// ============================================================
+let state = { detail: '', category: '', ward: '', lat: null, lng: null, landmark: '', photos: [], name: '', phone: '', hideContact: false };
+let currentStep = 1;
+let map, marker;
+
+// ============================================================
+// Build category grid + ward select
+// ============================================================
+const catGrid = document.getElementById('catGrid');
+CATEGORIES.forEach(cat => {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'cat-btn';
+  btn.dataset.cat = cat.id;
+  btn.setAttribute('aria-pressed', 'false');
+  btn.innerHTML = `<span class="emoji">${cat.emoji}</span><span>${cat.id}</span>`;
+  btn.addEventListener('click', () => {
+    state.category = cat.id;
+    [...catGrid.children].forEach(b => b.setAttribute('aria-pressed', 'false'));
+    btn.setAttribute('aria-pressed', 'true');
+    validateStep(2);
+    saveDraft();
+  });
+  catGrid.appendChild(btn);
+});
+
+const wardSelect = document.getElementById('ward');
+WARDS.forEach(w => {
+  const opt = document.createElement('option');
+  opt.value = w; opt.textContent = w;
+  wardSelect.appendChild(opt);
+});
+wardSelect.addEventListener('change', () => { state.ward = wardSelect.value; validateStep(3); saveDraft(); });
+document.getElementById('landmark').addEventListener('input', (e) => { state.landmark = e.target.value; saveDraft(); });
+
+// ============================================================
+// Draft (localStorage) — กันข้อมูลหายตอน LINE in-app browser reload
+// หรือแม้ปิดแอปไปแล้วกลับมาทำต่อ (ร่างหมดอายุใน 24 ชม. กันร่างเก่าค้าง)
+// ============================================================
+const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+function saveDraft() {
+  const { photos, ...rest } = state; // ไม่เก็บรูปเพราะ base64 เกินโควตา localStorage ได้ง่าย
+  rest.savedAt = Date.now();
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(rest));
+}
+function restoreDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  try {
+    const saved = JSON.parse(raw);
+    if (!saved.savedAt || Date.now() - saved.savedAt > DRAFT_EXPIRY_MS) {
+      localStorage.removeItem(DRAFT_KEY);
+      return;
+    }
+    const { savedAt, ...fields } = saved;
+    const hasContent = fields.detail || fields.category || fields.ward;
+    if (!hasContent) return;
+    Object.assign(state, fields);
+    document.getElementById('detail').value = state.detail || '';
+    if (state.category) {
+      [...catGrid.children].forEach(b => {
+        if (b.dataset.cat === state.category) b.setAttribute('aria-pressed', 'true');
+      });
+    }
+    if (state.ward) wardSelect.value = state.ward;
+    document.getElementById('landmark').value = state.landmark || '';
+    document.getElementById('name').value = state.name || '';
+    document.getElementById('phone').value = state.phone || '';
+    document.getElementById('hideContact').checked = !!state.hideContact;
+    document.getElementById('draftBanner').classList.add('show');
+    validateStep(1); validateStep(2); validateStep(3);
+  } catch (e) { /* ร่างเสีย ข้ามไป */ }
+}
+
+// ============================================================
+// Step navigation
+// ============================================================
+function showStep(n) {
+  currentStep = n;
+  document.querySelectorAll('.step').forEach(s => s.classList.toggle('active', Number(s.dataset.step) === n));
+  document.querySelectorAll('#progress span').forEach(s => {
+    const step = Number(s.dataset.step);
+    s.classList.toggle('done', step < n);
+    s.classList.toggle('active', step === n);
+  });
+  if (n === 3 && !map) initMap();
+  if (n === 4) renderReview();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.querySelectorAll('[data-next]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    showStep(currentStep + 1);
+    logEvent('step_view', currentStep);
+  });
+});
+document.querySelectorAll('[data-back]').forEach(btn => {
+  btn.addEventListener('click', () => showStep(currentStep - 1));
+});
+
+function setFieldError(fieldId, invalid) {
+  const field = document.getElementById(fieldId);
+  field.classList.toggle('invalid', invalid);
+}
+
+function validateStep(step) {
+  if (step === 1) {
+    const ok = document.getElementById('detail').value.trim().length >= 10;
+    document.querySelector('[data-step="1"] [data-next]').disabled = !ok;
+    return ok;
+  }
+  if (step === 2) {
+    const ok = !!state.category;
+    document.querySelector('[data-step="2"] [data-next]').disabled = !ok;
+    return ok;
+  }
+  if (step === 3) {
+    const ok = !!state.ward;
+    document.querySelector('[data-step="3"] [data-next]').disabled = !ok;
+    return ok;
+  }
+}
+
+document.getElementById('detail').addEventListener('input', (e) => {
+  state.detail = e.target.value;
+  validateStep(1);
+  saveDraft();
+});
+
+// ============================================================
+// Map (Leaflet)
+// ============================================================
+function initMap() {
+  map = L.map('map').setView(DEFAULT_CENTER, 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  map.on('click', (e) => setMarker(e.latlng.lat, e.latlng.lng));
+}
+function setMarker(lat, lng) {
+  state.lat = lat; state.lng = lng;
+  if (marker) map.removeLayer(marker);
+  marker = L.marker([lat, lng]).addTo(map);
+  saveDraft();
+}
+document.getElementById('locateBtn').addEventListener('click', () => {
+  if (!navigator.geolocation) { alert('เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง'); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { setMarker(pos.coords.latitude, pos.coords.longitude); map.setView([pos.coords.latitude, pos.coords.longitude], 16); },
+    () => alert('ไม่สามารถระบุตำแหน่งได้ กรุณาปักหมุดเองบนแผนที่')
+  );
+});
+
+// ============================================================
+// Place search — ค้นหาเมื่อผู้ใช้กดปุ่มเท่านั้น (ไม่ทำ autocomplete)
+// ============================================================
+const placeSearchInput = document.getElementById('placeSearch');
+const placeSearchBtn = document.getElementById('placeSearchBtn');
+const searchResults = document.getElementById('searchResults');
+const placeSearchCache = new Map();
+let lastPlaceSearchAt = 0;
+
+placeSearchBtn.addEventListener('click', searchPlace);
+placeSearchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    searchPlace();
+  }
+});
+
+function renderSearchMessage(message, isError = false) {
+  searchResults.replaceChildren();
+  const text = document.createElement('div');
+  text.className = 'search-message';
+  text.textContent = message;
+  if (isError) text.setAttribute('role', 'alert');
+  searchResults.appendChild(text);
+}
+
+function renderPlaceResults(results) {
+  searchResults.replaceChildren();
+  if (!results.length) {
+    renderSearchMessage('ไม่พบสถานที่ ลองใช้ชื่อซอย ถนน หรือจุดสังเกตอื่น');
+    return;
+  }
+
+  results.forEach((result) => {
+    const lat = Number(result.lat);
+    const lng = Number(result.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'search-result';
+    option.textContent = result.display_name;
+    option.addEventListener('click', () => {
+      setMarker(lat, lng);
+      map.setView([lat, lng], 17);
+      const matchedWard = [...WARDS]
+        .sort((a, b) => b.length - a.length)
+        .find(ward => result.display_name.includes(`แขวง${ward}`));
+      if (matchedWard) {
+        state.ward = matchedWard;
+        wardSelect.value = matchedWard;
+        validateStep(3);
+      }
+      state.landmark = result.display_name;
+      document.getElementById('landmark').value = state.landmark;
+      saveDraft();
+      renderSearchMessage('เลือกตำแหน่งแล้ว สามารถแตะแผนที่เพื่อปรับหมุดได้');
+    });
+    searchResults.appendChild(option);
+  });
+
+  const attribution = document.createElement('div');
+  attribution.className = 'search-attribution';
+  const link = document.createElement('a');
+  link.href = 'https://www.openstreetmap.org/copyright';
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = 'ข้อมูลสถานที่ © OpenStreetMap contributors';
+  attribution.appendChild(link);
+  searchResults.appendChild(attribution);
+}
+
+async function searchPlace() {
+  const rawQuery = placeSearchInput.value.trim();
+  if (rawQuery.length < 3) {
+    renderSearchMessage('กรุณาพิมพ์อย่างน้อย 3 ตัวอักษร', true);
+    return;
+  }
+
+  const query = state.ward
+    ? `${rawQuery}, ${state.ward}, กรุงเทพมหานคร`
+    : `${rawQuery}, กรุงเทพมหานคร`;
+  const cacheKey = query.toLocaleLowerCase('th');
+  placeSearchBtn.disabled = true;
+  placeSearchBtn.textContent = 'ค้นหา...';
+  renderSearchMessage('กำลังค้นหา...');
+
+  try {
+    let results = placeSearchCache.get(cacheKey);
+    if (!results) {
+      const waitMs = Math.max(0, 1000 - (Date.now() - lastPlaceSearchAt));
+      if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
+      lastPlaceSearchAt = Date.now();
+
+      const params = new URLSearchParams({
+        q: query,
+        format: 'jsonv2',
+        limit: '3',
+        countrycodes: 'th',
+        'accept-language': 'th',
+        viewbox: '100.62,13.96,100.84,13.75',
+        bounded: '0'
+      });
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) throw new Error('place search failed');
+      results = await response.json();
+      placeSearchCache.set(cacheKey, results);
+    }
+    renderPlaceResults(results);
+  } catch (error) {
+    renderSearchMessage('ค้นหาสถานที่ไม่สำเร็จ กรุณาลองอีกครั้งหรือปักหมุดเอง', true);
+  } finally {
+    placeSearchBtn.disabled = false;
+    placeSearchBtn.textContent = 'ค้นหา';
+  }
+}
+
+// ============================================================
+// Photos — บีบอัดฝั่ง client ก่อนส่ง
+// ============================================================
+const cameraInput = document.getElementById('cameraInput');
+const galleryInput = document.getElementById('galleryInput');
+const photoRow = document.getElementById('photoRow');
+const takePhotoBtn = document.getElementById('takePhotoBtn');
+const pickPhotoBtn = document.getElementById('pickPhotoBtn');
+
+takePhotoBtn.addEventListener('click', () => cameraInput.click());
+pickPhotoBtn.addEventListener('click', () => galleryInput.click());
+
+async function handlePhotoFile(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file || state.photos.length >= 3) return;
+  try {
+    const dataUrl = await compressImage(file, 1280, 0.7);
+    state.photos.push(dataUrl);
+    renderPhotos();
+  } catch (err) {
+    alert('ไม่สามารถแนบรูปนี้ได้ ลองรูปอื่น');
+  }
+}
+cameraInput.addEventListener('change', handlePhotoFile);
+galleryInput.addEventListener('change', handlePhotoFile);
+
+function renderPhotos() {
+  photoRow.innerHTML = '';
+  state.photos.forEach((src, i) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    thumb.innerHTML = `<img src="${src}" alt="รูปที่ ${i + 1}"><button type="button" aria-label="ลบรูป">×</button>`;
+    thumb.querySelector('button').addEventListener('click', () => { state.photos.splice(i, 1); renderPhotos(); });
+    photoRow.appendChild(thumb);
+  });
+  const full = state.photos.length >= 3;
+  takePhotoBtn.disabled = full;
+  pickPhotoBtn.disabled = full;
+}
+
+function compressImage(file, maxWidth, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ============================================================
+// Review + contact fields
+// ============================================================
+document.getElementById('name').addEventListener('input', (e) => { state.name = e.target.value; saveDraft(); });
+document.getElementById('phone').addEventListener('input', (e) => { state.phone = e.target.value; saveDraft(); });
+document.getElementById('hideContact').addEventListener('change', (e) => { state.hideContact = e.target.checked; saveDraft(); });
+document.getElementById('consent').addEventListener('change', (e) => { if (e.target.checked) setFieldError('field-consent', false); });
+
+function renderReview() {
+  const photoPreview = state.photos.length
+    ? `<div class="review-photos">${state.photos.map((src, i) => `<img src="${src}" alt="รูปประกอบที่ ${i + 1}">`).join('')}</div>`
+    : 'ไม่ได้แนบ';
+  document.getElementById('reviewBox').innerHTML = `
+    <dt>รายละเอียด</dt><dd>${escapeHtml(state.detail)}</dd>
+    <dt>ประเภทเรื่อง</dt><dd>${escapeHtml(state.category)}</dd>
+    <dt>แขวง</dt><dd>${escapeHtml(state.ward)}</dd>
+    <dt>ตำแหน่งบนแผนที่</dt><dd>${state.lat ? 'ปักหมุดแล้ว' : 'ไม่ได้ระบุ'}</dd>
+    <dt>จุดสังเกต</dt><dd>${escapeHtml(state.landmark) || 'ไม่ได้ระบุ'}</dd>
+    <dt>รูปแนบ${state.photos.length ? ` · ${state.photos.length} รูป` : ''}</dt><dd>${photoPreview}</dd>
+  `;
+}
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+// ============================================================
+// Submit
+// ============================================================
+const submitBtn = document.getElementById('submitBtn');
+submitBtn.addEventListener('click', async () => {
+  const consentChecked = document.getElementById('consent').checked;
+  setFieldError('field-consent', !consentChecked);
+  if (!consentChecked) {
+    document.getElementById('field-consent').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'กำลังส่ง...';
+  setFieldError('field-submit', false);
+  try {
+    const idToken = liff.getIDToken();
+    const profile = await liff.getProfile();
+    const payload = {
+      type: 'newCase',
+      userId: profile.userId,
+      idToken: idToken,
+      requestId: sessionId, // สุ่มครั้งเดียวตอนเปิดหน้า — ถ้าเน็ตกระตุกแล้วกดส่งซ้ำ backend จะรู้ว่าเป็น retry ไม่สร้างเคสซ้ำ
+      detail: state.detail,
+      category: state.category,
+      ward: state.ward,
+      lat: state.lat,
+      lng: state.lng,
+      landmark: state.landmark,
+      photos: state.photos,
+      name: state.name,
+      phone: state.phone,
+      hideContact: state.hideContact
+    };
+    const resp = await fetch(CONFIG.ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // เลี่ยง CORS preflight ของ Apps Script
+      body: JSON.stringify(payload)
+    });
+    const result = await resp.json();
+    if (!result.ok) throw new Error(result.error || 'ส่งเรื่องไม่สำเร็จ');
+
+    logEvent('submitted', 4);
+    localStorage.removeItem(DRAFT_KEY);
+    document.getElementById('receiptCaseNo').textContent = result.caseNo;
+    document.getElementById('caseForm').style.display = 'none';
+    document.getElementById('progress').style.display = 'none';
+    document.getElementById('receipt').classList.add('show');
+  } catch (err) {
+    setFieldError('field-submit', true);
+    document.getElementById('field-submit').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'ส่งเรื่อง';
+  }
+});
+
+document.getElementById('closeBtn').addEventListener('click', () => {
+  if (liff.isInClient()) liff.closeWindow();
+});
+
+// ============================================================
+// Init
+// ============================================================
+liff.init({ liffId: CONFIG.LIFF_ID })
+  .then(() => {
+    if (!liff.isLoggedIn() && !liff.isInClient()) { liff.login(); return; }
+    restoreDraft();
+    logEvent('step_view', 1);
+  })
+  .catch((err) => {
+    alert('เปิดฟอร์มไม่สำเร็จ กรุณาเปิดผ่านเมนูในแอป LINE');
+  });
+</script>
+</body>
+</html>

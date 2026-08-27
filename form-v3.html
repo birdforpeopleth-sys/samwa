@@ -442,6 +442,10 @@ const CONFIG = {
   POLICY_VERSION: '2026-08-26' // ต้องตรงกับ POLICY_VERSION ใน Code.gs — ขยับทุกครั้งที่แก้ privacy.html
 };
 
+// รายละเอียดทางเทคนิคซ่อนไว้เบื้องหลัง ?debug=1 — ประชาชนไม่ควรเห็นชื่อไฟล์หรือชื่อตัวแปรในโค้ด
+// เพราะไม่ช่วยให้เขาทำอะไรได้ และทำให้ระบบดูพัง ทีมงานเปิด LIFF URL แล้วต่อท้าย ?debug=1 เพื่อดูสาเหตุจริง
+const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+
 const CATEGORIES = [
   { id: 'ถนน/ทางเท้าชำรุด', emoji: '🛣️' },
   { id: 'ไฟฟ้าส่องสว่างดับ', emoji: '💡' },
@@ -989,7 +993,12 @@ submitBtn.addEventListener('click', async () => {
       // เดิมเคสนี้ตกไปที่ catch รวมแล้วขึ้นข้อความเดียวกับ error อื่นทั้งหมด แยกไม่ออกเลย
       throw new Error('เซิร์ฟเวอร์ไม่ได้ตอบเป็น JSON — ตรวจว่า Apps Script deploy เป็น Access: Anyone แล้วหรือยัง (' + raw.slice(0, 80) + ')');
     }
-    if (!result.ok) throw new Error(result.error || 'ส่งเรื่องไม่สำเร็จ');
+    if (!result.ok) {
+      // detail มีรายละเอียดทางเทคนิค แสดงเฉพาะโหมด debug ประชาชนเห็นแค่ error สั้นๆ
+      const e = new Error(result.error || 'ส่งเรื่องไม่สำเร็จ');
+      e.detail = result.detail;
+      throw e;
+    }
 
     logEvent('submitted', 4);
     localStorage.removeItem(DRAFT_KEY);
@@ -999,9 +1008,13 @@ submitBtn.addEventListener('click', async () => {
     document.getElementById('receipt').classList.add('show');
   } catch (err) {
     // เดิมกลืน err ทิ้ง ทำให้ทุกความล้มเหลวขึ้นข้อความเดียวกันหมดจนแยกสาเหตุไม่ได้
-    console.error('ส่งเรื่องไม่สำเร็จ:', err);
+    console.error('ส่งเรื่องไม่สำเร็จ:', err, err && err.detail);
     const field = document.getElementById('field-submit');
-    field.querySelector('.error').textContent = 'ส่งเรื่องไม่สำเร็จ กรุณาลองใหม่อีกครั้ง (' + (err && err.message ? err.message : 'ไม่ทราบสาเหตุ') + ')';
+    // ประชาชนเห็นแค่ว่าลองใหม่ได้ · รายละเอียดทางเทคนิคโผล่เฉพาะเมื่อต่อท้าย URL ด้วย ?debug=1
+    const technical = [err && err.message, err && err.detail].filter(Boolean).join(' — ');
+    field.querySelector('.error').textContent = DEBUG
+      ? 'ส่งเรื่องไม่สำเร็จ (' + (technical || 'ไม่ทราบสาเหตุ') + ')'
+      : 'ส่งเรื่องไม่สำเร็จ กรุณาลองใหม่อีกครั้ง';
     setFieldError('field-submit', true);
     field.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } finally {
@@ -1026,10 +1039,6 @@ document.getElementById('closeBtn').addEventListener('click', () => {
 // ============================================================
 // Init
 // ============================================================
-// รายละเอียดทางเทคนิคซ่อนไว้เบื้องหลัง ?debug=1 — ประชาชนไม่ควรเห็นชื่อไฟล์หรือชื่อตัวแปรในโค้ด
-// เพราะไม่ช่วยให้เขาทำอะไรได้ และทำให้ระบบดูพัง ทีมงานเปิด LIFF URL แล้วต่อท้าย ?debug=1 เพื่อดูสาเหตุจริง
-const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
-
 /**
  * @param {string} userMessage  ข้อความที่ประชาชนเห็น — บอกว่าทำอะไรต่อได้ ไม่ใช่บอกว่าโค้ดพังตรงไหน
  * @param {string} technicalDetail  ลง console เสมอ แต่แสดงบนหน้าเฉพาะโหมด debug

@@ -530,6 +530,7 @@ landmarkInput.addEventListener('input', (e) => {
 // หรือแม้ปิดแอปไปแล้วกลับมาทำต่อ (ร่างหมดอายุใน 24 ชม. กันร่างเก่าค้าง)
 // ============================================================
 const DRAFT_EXPIRY_MS = 24 * 60 * 60 * 1000;
+const MAX_PHOTOS = 3; // ต้องไม่เกิน LIMITS.PHOTOS_MAX ใน Code.gs
 
 function saveDraft() {
   const { photos, ...rest } = state; // ไม่เก็บรูปเพราะ base64 เกินโควตา localStorage ได้ง่าย
@@ -800,7 +801,7 @@ const MAX_SOURCE_PHOTO_BYTES = 25 * 1024 * 1024;
 async function handlePhotoFile(e) {
   const file = e.target.files[0];
   e.target.value = '';
-  if (!file || state.photos.length >= 3) return;
+  if (!file || state.photos.length >= MAX_PHOTOS) return;
   // ไฟล์ใหญ่มากอาจทำให้ canvas ในเว็บวิวของ LINE หน่วยความจำไม่พอแล้วแท็บดับไปเฉยๆ
   if (file.size > MAX_SOURCE_PHOTO_BYTES) {
     alert('รูปนี้ใหญ่เกินไป กรุณาเลือกรูปที่เล็กกว่านี้');
@@ -827,7 +828,7 @@ function renderPhotos() {
     thumb.querySelector('button').addEventListener('click', () => { state.photos.splice(i, 1); renderPhotos(); });
     photoRow.appendChild(thumb);
   });
-  const full = state.photos.length >= 3;
+  const full = state.photos.length >= MAX_PHOTOS;
   takePhotoBtn.disabled = full;
   pickPhotoBtn.disabled = full;
 }

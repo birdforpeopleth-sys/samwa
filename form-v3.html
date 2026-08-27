@@ -47,7 +47,7 @@
     box-shadow: 0 4px 12px rgba(185,60,8,.2);
   }
   .brand-copy { line-height: 1.25; }
-  .brand-copy small { display: block; color: var(--muted); font-size: .7rem; letter-spacing: .03em; }
+  .brand-copy small { display: block; color: var(--muted); font-size: .78rem; letter-spacing: .03em; }
   header.topbar h1 { font-size: 1rem; margin: 2px 0 0; }
 
   .draft-banner {
@@ -71,11 +71,12 @@
     display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
     margin: 4px 0 27px; border-top: 1px solid var(--line); padding-top: 14px;
   }
-  .steps-progress span { color: #A3968D; text-align: center; font-size: .65rem; position: relative; }
+  /* #A3968D เดิมได้คอนทราสต์แค่ 2.70:1 ไม่ผ่าน AA · ขนาด .65rem = 10.4px เล็กเกินไปด้วย */
+  .steps-progress span { color: #796F68; text-align: center; font-size: .75rem; position: relative; }
   .steps-progress span::before {
     content: attr(data-step); display: grid; place-items: center; width: 25px; height: 25px;
-    margin: 0 auto 4px; border-radius: 50%; background: #EFE7E0; color: #887A71;
-    font-size: .72rem; font-weight: 700;
+    margin: 0 auto 4px; border-radius: 50%; background: #EFE7E0; color: #72665F;
+    font-size: .78rem; font-weight: 700;
   }
   .steps-progress span.active { color: var(--brand-strong); font-weight: 600; }
   .steps-progress span.active::before { background: var(--brand-strong); color: #fff; box-shadow: 0 3px 10px rgba(185,60,8,.18); }
@@ -103,7 +104,8 @@
     min-height: 0; resize: none; overflow-y: auto; max-height: 200px; line-height: 1.5;
   }
   textarea:focus, input:focus, select:focus { outline: 3px solid rgba(227,90,18,.18); border-color: var(--brand); }
-  textarea::placeholder, input::placeholder { color: #A99C93; }
+  /* placeholder คือตัวสอนว่าควรเขียนอะไร ถ้าจางจนอ่านไม่ออก คนจะเขียนสั้นเกินจนทีมงานต้องไล่ถามเพิ่ม */
+  textarea::placeholder, input::placeholder { color: #7D736D; }
 
   .field { margin-bottom: 20px; }
   .field .error {
@@ -116,7 +118,7 @@
   .cat-btn {
     display: flex; align-items: center; text-align: left; gap: 10px;
     padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
-    cursor: pointer; font-family: inherit; color: var(--ink); font-size: 0.82rem; line-height: 1.35;
+    cursor: pointer; font-family: inherit; color: var(--ink); font-size: 0.88rem; line-height: 1.4;
     min-height: 72px; box-shadow: 0 3px 12px rgba(75,43,25,.035);
   }
   .cat-btn .emoji { display: grid; place-items: center; flex: 0 0 35px; height: 35px; border-radius: 10px; background: #F6F0EA; font-size: 1.15rem; }
@@ -128,20 +130,22 @@
   .search-row { display: flex; gap: 8px; }
   .search-row input { min-width: 0; }
   .search-btn {
-    flex: 0 0 auto; padding: 0 15px; border: 0; border-radius: 12px;
+    /* ล็อกความกว้างไว้ ไม่งั้นตอนเปลี่ยนเป็น "กำลังค้นหา..." ปุ่มจะกว้างขึ้นแล้วช่องกรอกหดตาม เห็นเป็นการกระตุก */
+    flex: 0 0 auto; min-width: 118px; padding: 0 12px; border: 0; border-radius: 12px;
+    white-space: nowrap; font-size: .88rem;
     background: var(--ink); color: #fff; font-family: inherit; font-weight: 700; cursor: pointer;
   }
   .search-btn:disabled { opacity: .55; cursor: wait; }
-  .field-hint { margin: 6px 0 0; color: var(--muted); font-size: .75rem; line-height: 1.45; }
+  .field-hint { margin: 6px 0 0; color: var(--muted); font-size: .8rem; line-height: 1.5; }
   .search-results { display: grid; gap: 7px; margin-top: 9px; }
   .search-result {
-    width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 11px;
+    width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 11px;
     background: var(--surface); color: var(--ink); text-align: left; font-family: inherit;
-    font-size: .8rem; line-height: 1.4; cursor: pointer;
+    font-size: .85rem; line-height: 1.45; cursor: pointer;
   }
   .search-message { padding: 9px 2px 0; color: var(--muted); font-size: .78rem; }
   .search-message.error { color: var(--danger); }
-  .search-attribution { margin-top: 7px; color: var(--muted); font-size: .68rem; }
+  .search-attribution { margin-top: 7px; color: var(--muted); font-size: .75rem; }
   #map { height: 210px; border-radius: 12px; margin-top: 10px; border: 0; overflow: hidden; }
   .locate-btn {
     margin-top: 9px; background: var(--surface); border: 1px solid var(--line); color: var(--ink);
@@ -163,7 +167,7 @@
   .photo-btn:disabled { opacity: .5; cursor: not-allowed; }
 
   .review-box { background: var(--surface); border-radius: 16px; padding: 17px; margin-bottom: 20px; border-top: 3px solid var(--brand); box-shadow: var(--shadow); }
-  .review-box dt { font-size: 0.75rem; color: var(--muted); margin-top: 12px; }
+  .review-box dt { font-size: 0.8rem; color: var(--muted); margin-top: 12px; }
   .review-box dt:first-child { margin-top: 0; }
   .review-box dd { margin: 2px 0 0; font-weight: 500; }
   .review-photos { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; padding-bottom: 2px; }
@@ -319,11 +323,11 @@
         <div class="error">กรุณาเลือกแขวง</div>
       </div>
       <div class="field optional-card">
-        <label>ตำแหน่งจุดเกิดเหตุ (ถ้าทราบ)</label>
+        <label>ตำแหน่งจุดเกิดเหตุ (ไม่บังคับ)</label>
         <div class="place-search">
           <div class="search-row">
             <input type="text" id="placeSearch" placeholder="ชื่อสถานที่ ซอย ถนน หรือวัด" maxlength="120">
-            <button type="button" class="search-btn" id="placeSearchBtn">ค้นหา</button>
+            <button type="button" class="search-btn" id="placeSearchBtn">ค้นหาตำแหน่ง</button>
           </div>
           <p class="field-hint">ค้นหาเฉพาะชื่อสถานที่ ไม่ควรใส่ชื่อบุคคล เบอร์โทร หรือข้อมูลส่วนตัว</p>
           <div class="search-results" id="searchResults" aria-live="polite"></div>
@@ -749,7 +753,7 @@ async function searchPlace() {
     : `${rawQuery}, กรุงเทพมหานคร`;
   const cacheKey = query.toLocaleLowerCase('th');
   placeSearchBtn.disabled = true;
-  placeSearchBtn.textContent = 'ค้นหา...';
+  placeSearchBtn.textContent = 'กำลังค้นหา...';
   renderSearchMessage('กำลังค้นหา...');
 
   try {
@@ -780,7 +784,7 @@ async function searchPlace() {
     renderSearchMessage('ค้นหาสถานที่ไม่สำเร็จ กรุณาลองอีกครั้งหรือปักหมุดเอง', true);
   } finally {
     placeSearchBtn.disabled = false;
-    placeSearchBtn.textContent = 'ค้นหา';
+    placeSearchBtn.textContent = 'ค้นหาตำแหน่ง';
   }
 }
 

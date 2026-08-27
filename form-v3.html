@@ -437,7 +437,11 @@
 // ============================================================
 const CONFIG = {
   LIFF_ID: '2011276371-0Fsjy5e3',
-  ENDPOINT: 'https://script.google.com/macros/s/AKfycbzQWmGaUGz3zF47dvTpdeDXuxt2vUpsV9FpWubD5_ArxZiTzhwMdsyPYNjnl0dgvLJq/exec',
+  // ยิงผ่าน Cloudflare Worker ไม่ใช่ Apps Script โดยตรง
+  // Apps Script /exec ตอบ 302 เสมอ เบราว์เซอร์ต้องเดินตาม redirect ซึ่งเป็นจังหวะที่
+  // Google แทรกหน้าเลือกบัญชีเข้ามาได้ ทำให้ได้ HTML แทน JSON แล้วขึ้นว่าส่งไม่สำเร็จ
+  // ทั้งที่เคสถูกสร้างเรียบร้อยแล้ว — Worker เรียกฝั่งเซิร์ฟเวอร์แทน ไม่มีปัญหานี้
+  ENDPOINT: 'https://line-webhook-guard.samwatoday.workers.dev',
   HISTORY_LIFF_URL: 'https://liff.line.me/2011276371-oRn2zqWE', // LIFF ของ history.html — ปุ่มบนใบรับเรื่อง
   POLICY_VERSION: '2026-08-26' // ต้องตรงกับ POLICY_VERSION ใน Code.gs — ขยับทุกครั้งที่แก้ privacy.html
 };

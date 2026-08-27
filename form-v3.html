@@ -955,15 +955,14 @@ submitBtn.addEventListener('click', async () => {
   submitBtn.textContent = 'กำลังส่ง...';
   setFieldError('field-submit', false);
   try {
-    const idToken = liff.getIDToken();
-    // idToken เป็น null ถ้า LIFF scope ไม่มี openid — จับตรงนี้เพื่อบอกสาเหตุที่แก้ได้จริง
-    // แทนที่จะปล่อยไปให้ backend ตีกลับเป็น "id token verification failed" ลอยๆ
-    if (!idToken) throw new Error('ไม่ได้รับ idToken — ตรวจว่า LIFF app เปิด scope "openid" แล้วหรือยัง');
-    const profile = await liff.getProfile();
+    // ใช้ accessToken ไม่ใช่ idToken — SDK ต่ออายุ accessToken ให้เอง
+    // ส่วน idToken ออกครั้งเดียวตอนล็อกอินแล้วไม่ต่ออายุ พอ session ค้างข้ามวันจะหมดอายุ
+    // แล้วส่งฟอร์มไม่ผ่านโดยที่กด "ลองใหม่" กี่ครั้งก็ไม่หาย
+    const accessToken = liff.getAccessToken();
+    if (!accessToken) throw new Error('ไม่ได้รับ accessToken จาก LIFF — ลองปิดหน้านี้แล้วเปิดใหม่จากเมนูในแอป LINE');
     const payload = {
       type: 'newCase',
-      userId: profile.userId,
-      idToken: idToken,
+      accessToken: accessToken,
       policyVersion: CONFIG.POLICY_VERSION,
       requestId: sessionId, // สุ่มครั้งเดียวตอนเปิดหน้า — ถ้าเน็ตกระตุกแล้วกดส่งซ้ำ backend จะรู้ว่าเป็น retry ไม่สร้างเคสซ้ำ
       detail: state.detail,

@@ -191,8 +191,7 @@ async function loadCasePhotos(caseNo, button, container, expectedCount) {
       body: JSON.stringify({
         type: 'getCasePhotos',
         caseNo,
-        userId: historyAuth.userId,
-        idToken: historyAuth.idToken
+        accessToken: historyAuth.accessToken
       })
     });
     const result = await resp.json();
@@ -232,14 +231,14 @@ liff.init({ liffId: CONFIG.LIFF_ID })
   .then(async () => {
     if (!liff.isLoggedIn() && !liff.isInClient()) { liff.login(); return; }
     setState('<div class="state-msg">กำลังโหลด...</div>');
-    const idToken = liff.getIDToken();
-    if (!idToken) throw new Error('ไม่ได้รับ idToken — ตรวจว่า LIFF app เปิด scope "openid" แล้วหรือยัง');
-    const profile = await liff.getProfile();
-    historyAuth = { userId: profile.userId, idToken };
+    // accessToken ต่ออายุเองโดย SDK ต่างจาก idToken ที่หมดอายุแล้วค้าง (ดู form-v3.html)
+    const accessToken = liff.getAccessToken();
+    if (!accessToken) throw new Error('ไม่ได้รับ accessToken จาก LIFF — ลองปิดหน้านี้แล้วเปิดใหม่');
+    historyAuth = { accessToken };
     const resp = await fetch(CONFIG.ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ type: 'getHistory', userId: profile.userId, idToken })
+      body: JSON.stringify({ type: 'getHistory', accessToken })
     });
     const raw = await resp.text();
     let result;

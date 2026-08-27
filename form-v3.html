@@ -189,6 +189,37 @@
   button.primary:disabled { background: #D8CFC8; color: #8E8178; box-shadow: none; cursor: not-allowed; }
   button.secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
 
+  /* Modal นโยบาย — อ่านในหน้าเดิม ไม่ออกจากฟอร์ม
+     target="_blank" ใช้ไม่ได้ในเว็บวิวของ LINE มันเปิดทับหน้าเดิม พอย้อนกลับฟอร์มโหลดใหม่
+     ข้อความกู้คืนได้จากร่าง แต่รูปที่แนบไว้หายหมด */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(39,28,22,.55); align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-sheet {
+    background: var(--surface); width: 100%; max-width: 480px;
+    border-radius: 20px 20px 0 0; max-height: 88vh; display: flex; flex-direction: column;
+    animation: sheetup .22s ease; overflow: hidden;
+  }
+  @keyframes sheetup { from { transform: translateY(26px); opacity: .5; } to { transform: none; opacity: 1; } }
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 15px 18px 12px; border-bottom: 1px solid var(--line);
+  }
+  .modal-head h3 { margin: 0; font-size: 1.05rem; font-family: 'Noto Serif Thai', serif; }
+  .modal-close {
+    background: none; border: 0; font-size: 1.6rem; line-height: 1; color: var(--muted);
+    cursor: pointer; padding: 2px 8px; font-family: inherit;
+  }
+  .modal-body { flex: 1; min-height: 0; }
+  .modal-body iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .modal-foot { padding: 13px 18px calc(13px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .modal-foot button {
+    width: 100%; min-height: var(--btn-height); border-radius: 14px; border: 0;
+    background: var(--brand-strong); color: #fff; font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer;
+  }
+
   /* ใบรับเรื่อง */
   #receipt { display: none; padding: 8px 0 24px; }
   #receipt.show { display: block; }
@@ -209,7 +240,14 @@
   .receipt-case-no { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; margin: 8px 0; }
   .receipt-status { color: var(--brand-strong); font-weight: 700; margin-bottom: 20px; }
   .receipt-hint { font-size: 0.85rem; color: var(--muted); margin-top: 20px; }
-  #closeBtn { margin-top: 24px; }
+  .receipt-actions { display: flex; gap: 10px; margin-top: 24px; }
+  .receipt-btn {
+    flex: 1; min-height: var(--btn-height); border-radius: 14px; font-size: 1rem;
+    font-weight: 700; font-family: inherit; cursor: pointer; border: none;
+    display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none;
+  }
+  .receipt-btn.is-primary { background: var(--brand-strong); color: #fff; box-shadow: 0 6px 18px rgba(185,60,8,.2); }
+  .receipt-btn.is-secondary { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
 </style>
 </head>
 <body>
@@ -323,24 +361,29 @@
       </div>
       <div class="review-box" id="reviewBox"></div>
 
-      <div class="field">
-        <label for="name">ชื่อ (ไม่บังคับ)</label>
-        <input type="text" id="name" placeholder="ชื่อ-นามสกุล">
-      </div>
-      <div class="field">
-        <label for="phone">เบอร์ติดต่อ (ไม่บังคับ)</label>
-        <input type="tel" id="phone" placeholder="08xxxxxxxx">
-      </div>
-
       <div class="checkbox-row">
         <input type="checkbox" id="hideContact">
         <label for="hideContact">ไม่แสดงชื่อและเบอร์ให้ทีมงานเห็น (ยังแจ้งสถานะผ่านแชทนี้ได้ตามปกติ)</label>
       </div>
 
+      <div id="contactFields">
+        <div class="field">
+          <label for="name">ชื่อ (ไม่บังคับ)</label>
+          <input type="text" id="name" placeholder="ชื่อ-นามสกุล">
+        </div>
+        <div class="field">
+          <label for="phone">เบอร์ติดต่อ (ไม่บังคับ)</label>
+          <input type="tel" id="phone" placeholder="08xxxxxxxx">
+        </div>
+      </div>
+      <p class="field-hint" id="contactHiddenNote" style="display:none; margin-bottom:20px;">
+        ทีมงานจะเห็นเฉพาะเนื้อหาเรื่อง — ระบบจะไม่ส่งชื่อและเบอร์ออกจากเครื่องของคุณเลย
+      </p>
+
       <div class="field" id="field-consent">
         <div class="checkbox-row">
           <input type="checkbox" id="consent">
-          <label for="consent">รับทราบและยินยอมตาม <a href="privacy.html" target="_blank" rel="noopener">นโยบายข้อมูลส่วนบุคคล</a></label>
+          <label for="consent">รับทราบและยินยอมตาม <a href="privacy.html" id="privacyLink" target="_blank" rel="noopener">นโยบายข้อมูลส่วนบุคคล</a></label>
         </div>
         <div class="error">กรุณายืนยันว่ารับทราบนโยบายข้อมูลส่วนบุคคลก่อนส่งเรื่อง</div>
       </div>
@@ -356,6 +399,17 @@
     </section>
   </form>
 
+  <div class="modal-overlay" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <h3 id="privacyModalTitle">นโยบายข้อมูลส่วนบุคคล</h3>
+        <button type="button" class="modal-close" id="privacyClose" aria-label="ปิด">&times;</button>
+      </div>
+      <div class="modal-body"><iframe id="privacyFrame" title="นโยบายข้อมูลส่วนบุคคล"></iframe></div>
+      <div class="modal-foot"><button type="button" id="privacyAccept">รับทราบและยินยอม</button></div>
+    </div>
+  </div>
+
   <!-- ใบรับเรื่อง -->
   <div id="receipt">
     <div class="receipt-card">
@@ -364,9 +418,12 @@
       <div class="receipt-case-no serif" id="receiptCaseNo"></div>
       <div class="receipt-status">รับเรื่อง</div>
       <div>เราจะแจ้งความคืบหน้าให้ทางแชทนี้ครับ</div>
-      <div class="receipt-hint">แคปหน้าจอนี้เก็บไว้อ้างอิงได้ หรือกด "ดูประวัติ" ในแชทเมื่อไหร่ก็ได้เพื่อดูความคืบหน้า</div>
+      <div class="receipt-hint">แคปหน้าจอนี้เก็บไว้อ้างอิงได้ หรือกดดูความคืบหน้าได้ทุกเมื่อ</div>
     </div>
-    <button class="primary" id="closeBtn" type="button">ปิดหน้าต่าง</button>
+    <div class="receipt-actions">
+      <a class="receipt-btn is-secondary" id="historyLink" href="#">📋 ดูประวัติ</a>
+      <button class="receipt-btn is-primary" id="closeBtn" type="button">ปิดหน้าต่าง</button>
+    </div>
   </div>
 </div>
 
@@ -377,6 +434,7 @@
 const CONFIG = {
   LIFF_ID: '2011276371-0Fsjy5e3',
   ENDPOINT: 'https://script.google.com/macros/s/AKfycbzQWmGaUGz3zF47dvTpdeDXuxt2vUpsV9FpWubD5_ArxZiTzhwMdsyPYNjnl0dgvLJq/exec',
+  HISTORY_LIFF_URL: 'https://liff.line.me/2011276371-oRn2zqWE', // LIFF ของ history.html — ปุ่มบนใบรับเรื่อง
   POLICY_VERSION: '2026-08-26' // ต้องตรงกับ POLICY_VERSION ใน Code.gs — ขยับทุกครั้งที่แก้ privacy.html
 };
 
@@ -503,6 +561,7 @@ function restoreDraft() {
     document.getElementById('name').value = state.name || '';
     document.getElementById('phone').value = state.phone || '';
     document.getElementById('hideContact').checked = !!state.hideContact;
+    syncContactFields();
     document.getElementById('draftBanner').classList.add('show');
     validateStep(1); validateStep(2); validateStep(3);
   } catch (e) { /* ร่างเสีย ข้ามไป */ }
@@ -619,6 +678,10 @@ function renderSearchMessage(message, isError = false) {
   searchResults.appendChild(text);
 }
 
+function shortPlaceName(displayName) {
+  return String(displayName || '').split(',').slice(0, 2).join(',').trim();
+}
+
 function renderPlaceResults(results) {
   searchResults.replaceChildren();
   if (!results.length) {
@@ -648,11 +711,16 @@ function renderPlaceResults(results) {
       }
       // ตัดให้พอดีเพดานเดียวกับ backend — display_name ของ OpenStreetMap ยาวได้มาก
       // ถ้าปล่อยยาวเกิน backend จะตีเรื่องกลับตอนกดส่ง ทั้งที่ผู้ใช้กรอกครบแล้ว
-      state.landmark = String(result.display_name || '').slice(0, LANDMARK_MAX);
-      landmarkInput.value = state.landmark;
-      autoGrow(landmarkInput);
+      // เติมให้เฉพาะตอนช่องยังว่าง — ไม่ทับสิ่งที่ผู้ใช้พิมพ์เอง
+      // คำบอกทางในภาษาคนอย่าง "เสาไฟต้นที่สอง" มีค่ากว่าที่อยู่ทางการ เพราะพิกัดบอกตำแหน่งได้อยู่แล้ว
+      if (!String(state.landmark || '').trim()) {
+        state.landmark = String(result.display_name || '').slice(0, LANDMARK_MAX);
+        landmarkInput.value = state.landmark;
+        autoGrow(landmarkInput);
+      }
       saveDraft();
-      renderSearchMessage('เลือกตำแหน่งแล้ว สามารถแตะแผนที่เพื่อปรับหมุดได้');
+      // บอกว่าเลือกอันไหนไป ไม่งั้นรายการหายแล้วยืนยันไม่ได้ว่ากดถูกหรือเปล่า
+      renderSearchMessage('📍 ปักหมุดที่ ' + shortPlaceName(result.display_name) + ' — แตะแผนที่เพื่อปรับตำแหน่งได้');
     });
     searchResults.appendChild(option);
   });
@@ -791,8 +859,57 @@ function compressImage(file, maxWidth, quality) {
 // ============================================================
 document.getElementById('name').addEventListener('input', (e) => { state.name = e.target.value; saveDraft(); });
 document.getElementById('phone').addEventListener('input', (e) => { state.phone = e.target.value; saveDraft(); });
-document.getElementById('hideContact').addEventListener('change', (e) => { state.hideContact = e.target.checked; saveDraft(); });
+const contactFields = document.getElementById('contactFields');
+const contactHiddenNote = document.getElementById('contactHiddenNote');
+
+// ติ๊กแล้วซ่อนช่องไปเลย ดีกว่าปล่อยให้กรอกทั้งที่ข้อมูลจะไม่ถูกส่ง
+// ค่าที่พิมพ์ไว้ยังอยู่ใน DOM ถ้าเอาติ๊กออกก็กลับมาเหมือนเดิม ไม่ต้องพิมพ์ใหม่
+function syncContactFields() {
+  contactFields.style.display = state.hideContact ? 'none' : '';
+  contactHiddenNote.style.display = state.hideContact ? '' : 'none';
+}
+document.getElementById('hideContact').addEventListener('change', (e) => {
+  state.hideContact = e.target.checked;
+  syncContactFields();
+  saveDraft();
+});
 document.getElementById('consent').addEventListener('change', (e) => { if (e.target.checked) setFieldError('field-consent', false); });
+
+// ============================================================
+// Modal นโยบาย — เปิดอ่านโดยไม่ออกจากฟอร์ม
+// โหลด privacy.html ใส่ iframe แทนที่จะคัดลอกเนื้อหามาไว้ที่นี่
+// เพื่อให้นโยบายมีฉบับเดียว ไม่ต้องคอยแก้สองที่ให้ตรงกัน
+// ============================================================
+const privacyModal = document.getElementById('privacyModal');
+const privacyFrame = document.getElementById('privacyFrame');
+
+function openPrivacy() {
+  if (!privacyFrame.getAttribute('src')) privacyFrame.setAttribute('src', 'privacy.html?embed=1');
+  privacyModal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('privacyClose').focus();
+}
+function closePrivacy() {
+  privacyModal.classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('privacyLink').addEventListener('click', (e) => {
+  e.preventDefault(); // ถ้า JS ไม่ทำงาน href เดิมยังพาไปหน้านโยบายได้ตามปกติ
+  openPrivacy();
+});
+document.getElementById('privacyClose').addEventListener('click', closePrivacy);
+privacyModal.addEventListener('click', (e) => { if (e.target === privacyModal) closePrivacy(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && privacyModal.classList.contains('show')) closePrivacy();
+});
+// อ่านจบแล้วกดยอมรับได้จากในนี้เลย ไม่ต้องปิดแล้วไปหาช่องติ๊กเอง
+document.getElementById('privacyAccept').addEventListener('click', () => {
+  const consent = document.getElementById('consent');
+  consent.checked = true;
+  setFieldError('field-consent', false);
+  closePrivacy();
+});
 
 function renderReview() {
   const photoPreview = state.photos.length
@@ -847,8 +964,10 @@ submitBtn.addEventListener('click', async () => {
       lng: state.lng,
       landmark: state.landmark,
       photos: state.photos,
-      name: state.name,
-      phone: state.phone,
+      // ไม่ส่งออกจากเครื่องเลยถ้าผู้แจ้งเลือกไม่เปิดเผย — เดิมส่งไปแล้วให้ backend ทิ้งทีหลัง
+      // ซึ่งแปลว่าข้อมูลยังวิ่งผ่านเน็ตและไปถึงเซิร์ฟเวอร์อยู่ดี ขัดกับหลักเก็บเท่าที่จำเป็น
+      name: state.hideContact ? '' : state.name,
+      phone: state.hideContact ? '' : state.phone,
       hideContact: state.hideContact
     };
     const resp = await fetch(CONFIG.ENDPOINT, {
@@ -885,6 +1004,15 @@ submitBtn.addEventListener('click', async () => {
     submitBtn.textContent = 'ส่งเรื่อง';
   }
 });
+
+// ต้องเป็น URL เต็มของ liff.line.me เท่านั้น — ลิงก์สัมพัทธ์ไป history.html จะพาไปทั้งที่ยังอยู่ใน
+// LIFF context ของฟอร์ม ทำให้ liff.init ของหน้าประวัติเรียกด้วย ID ที่ไม่ตรงกับ context แล้วพัง
+const historyLink = document.getElementById('historyLink');
+if (CONFIG.HISTORY_LIFF_URL && CONFIG.HISTORY_LIFF_URL.indexOf('PASTE_') !== 0) {
+  historyLink.href = CONFIG.HISTORY_LIFF_URL;
+} else {
+  historyLink.style.display = 'none';
+}
 
 document.getElementById('closeBtn').addEventListener('click', () => {
   if (liff.isInClient()) liff.closeWindow();
